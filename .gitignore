@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.DS_Store
+~$*.xlsx
+*.tmp
+.claude/
+dashboard.html
+Test_Plan_Dashboard.xlsx
+build_excel_dashboard.py
+generate_dashboard.py
+server.py
