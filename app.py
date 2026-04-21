@@ -604,87 +604,100 @@ function setLvFilter(lv){
 }
 
 function renderEffort(){
-  const q=(document.getElementById('eq').value||'').toLowerCase().trim();
   const scroll=document.getElementById('effort-scroll');
   scroll.innerHTML='';
 
   Object.entries(EFFORT).forEach(([sheetName,{unit,items}])=>{
-    const testItems=items.filter(it=>!it.is_group);
-    // Apply filters
-    const visible=testItems.filter(it=>{
-      if(LV_FILTER>0 && sheetName==='HW Test Plan' && it.level!==LV_FILTER) return false;
-      if(q && !it.name.toLowerCase().includes(q) && !it.group.toLowerCase().includes(q)) return false;
-      return true;
-    });
-    if(!visible.length && q) return; // hide empty sheets when searching
+    const visible=getVisibleTests(sheetName,items);
+    if(!visible.length && (document.getElementById('eq').value||'').trim()) return;
 
     const selInSheet=visible.filter(it=>SEL.has(it.id));
     const totalDays=selInSheet.reduce((s,t)=>s+(t.days||0),0);
+    const isCollapsed=collapsed['sheet_'+sheetName]||false;
+    const allSelected=visible.length>0&&selInSheet.length===visible.length;
 
-    // Sheet block
+    // ── Sheet block ──────────────────────────────────────────────────
     const block=document.createElement('div');
     block.className='sheet-block';
-    const isCollapsed=collapsed['sheet_'+sheetName]||false;
 
-    // Sheet header
+    // Sheet header (built with DOM so no inline handlers)
     const hdr=document.createElement('div');
     hdr.className='sheet-hdr'+(isCollapsed?' collapsed':'');
-    hdr.innerHTML=`
-      <span class="sarrow">▾</span>
-      <span class="sname">${SHEET_ICONS[sheetName]||'📄'} ${sheetName}</span>
-      <div class="smeta">
-        <span class="scount">${selInSheet.length}/${visible.length} selected</span>
-        <span class="stotal">${totalDays>0?totalDays.toFixed(1)+' days':''}</span>
-      </div>
-      <div class="sa-wrap" onclick="event.stopPropagation()">
-        <span class="sa-label">All</span>
-        <input type="checkbox" class="sa-cb"
-          ${selInSheet.length===visible.length&&visible.length>0?'checked':''}
-          onchange="toggleSheet('${sheetName}',this.checked)"/>
-      </div>`;
+
+    const arrow=document.createElement('span'); arrow.className='sarrow'; arrow.textContent='▾';
+    const sname=document.createElement('span'); sname.className='sname';
+    sname.textContent=(SHEET_ICONS[sheetName]||'📄')+' '+sheetName;
+    const smeta=document.createElement('div'); smeta.className='smeta';
+    const scount=document.createElement('span'); scount.className='scount';
+    scount.dataset.sheetCount=sheetName;
+    scount.textContent=selInSheet.length+'/'+visible.length+' selected';
+    const stotal=document.createElement('span'); stotal.className='stotal';
+    stotal.dataset.sheetDays=sheetName;
+    stotal.textContent=totalDays>0?totalDays.toFixed(1)+' days':'';
+    smeta.appendChild(scount); smeta.appendChild(stotal);
+
+    // Select-all checkbox for sheet (no inline handler)
+    const saWrap=document.createElement('div'); saWrap.className='sa-wrap';
+    saWrap.addEventListener('click',e=>e.stopPropagation());
+    const saLabel=document.createElement('span'); saLabel.className='sa-label'; saLabel.textContent='All';
+    const saCb=document.createElement('input'); saCb.type='checkbox'; saCb.className='sa-cb';
+    saCb.dataset.sheetSa=sheetName;
+    saCb.checked=allSelected;
+    saCb.indeterminate=!allSelected&&selInSheet.length>0;
+    saCb.addEventListener('change',function(){ toggleSheet(sheetName,this.checked); });
+    saWrap.appendChild(saLabel); saWrap.appendChild(saCb);
+
+    hdr.appendChild(arrow); hdr.appendChild(sname); hdr.appendChild(smeta); hdr.appendChild(saWrap);
     hdr.addEventListener('click',()=>{ collapsed['sheet_'+sheetName]=!collapsed['sheet_'+sheetName]; renderEffort(); });
     block.appendChild(hdr);
 
+    // ── Sheet body ───────────────────────────────────────────────────
     if(!isCollapsed){
       const body=document.createElement('div');
       body.className='sheet-body';
 
-      // Group items or flat list
       if(sheetName==='HW Test Plan'){
         // Grouped by section
-        const groups={};
-        const groupOrder=[];
-        items.filter(it=>it.is_group).forEach(g=>{groups[g.name]=[]; groupOrder.push(g.name);});
+        const groups={}, groupOrder=[];
+        items.filter(it=>it.is_group).forEach(g=>{ groups[g.name]=[]; groupOrder.push(g.name); });
         visible.forEach(it=>{ if(groups[it.group]) groups[it.group].push(it); });
+
         groupOrder.forEach(grpName=>{
           const grpTests=groups[grpName];
           if(!grpTests||!grpTests.length) return;
           const grpCollapsed=collapsed['grp_'+grpName]||false;
           const grpSel=grpTests.filter(t=>SEL.has(t.id)).length;
+          const grpAllSel=grpTests.length>0&&grpSel===grpTests.length;
+
           const grpRow=document.createElement('div');
           grpRow.className='group-row'+(grpCollapsed?' collapsed':'');
-          grpRow.innerHTML=`
-            <span class="garr">▾</span>
-            <span class="gname">${esc(grpName)}</span>
-            <span class="gsel">${grpSel}/${grpTests.length}</span>
-            <div class="group-sa" onclick="event.stopPropagation()">
-              <input type="checkbox" ${grpSel===grpTests.length&&grpTests.length>0?'checked':''}
-                onchange="toggleGroup('${grpName.replace(/'/g,"\\'")}',this.checked)"/>
-              <span>All</span>
-            </div>`;
-          grpRow.addEventListener('click',()=>{collapsed['grp_'+grpName]=!collapsed['grp_'+grpName];renderEffort();});
+          const garr=document.createElement('span'); garr.className='garr'; garr.textContent='▾';
+          const gname=document.createElement('span'); gname.className='gname'; gname.textContent=grpName;
+          const gsel=document.createElement('span'); gsel.className='gsel';
+          gsel.dataset.grpCount=grpName;
+          gsel.textContent=grpSel+'/'+grpTests.length;
+          const gsa=document.createElement('div'); gsa.className='group-sa';
+          gsa.addEventListener('click',e=>e.stopPropagation());
+          const gsaCb=document.createElement('input'); gsaCb.type='checkbox';
+          gsaCb.dataset.grpSa=grpName;
+          gsaCb.checked=grpAllSel;
+          gsaCb.indeterminate=!grpAllSel&&grpSel>0;
+          gsaCb.addEventListener('change',function(){ toggleGroup(grpName,this.checked); });
+          const gsaLbl=document.createElement('span'); gsaLbl.textContent='All';
+          gsa.appendChild(gsaCb); gsa.appendChild(gsaLbl);
+          grpRow.appendChild(garr); grpRow.appendChild(gname); grpRow.appendChild(gsel); grpRow.appendChild(gsa);
+          grpRow.addEventListener('click',()=>{ collapsed['grp_'+grpName]=!collapsed['grp_'+grpName]; renderEffort(); });
           body.appendChild(grpRow);
+
           if(!grpCollapsed){
-            const list=document.createElement('div');
-            list.className='test-list';
-            grpTests.forEach(it=>list.appendChild(makeTestRow(it,'HW Test Plan')));
+            const list=document.createElement('div'); list.className='test-list';
+            grpTests.forEach(it=>list.appendChild(makeTestRow(it)));
             body.appendChild(list);
           }
         });
       } else {
-        const list=document.createElement('div');
-        list.className='test-list';
-        visible.forEach(it=>list.appendChild(makeTestRow(it,sheetName)));
+        const list=document.createElement('div'); list.className='test-list';
+        visible.forEach(it=>list.appendChild(makeTestRow(it)));
         body.appendChild(list);
       }
       block.appendChild(body);
@@ -695,54 +708,117 @@ function renderEffort(){
   updateSummary();
 }
 
-function makeTestRow(it, sheetName){
+function makeTestRow(it){
   const row=document.createElement('div');
   row.className='trow';
   const lvLabel=it.level===1?'Critical':it.level===2?'Hard':it.level===3?'Others':'';
   const lvClass=it.level===1?'lv1':it.level===2?'lv2':it.level===3?'lv3':'';
   const hasTime=it.days!=null;
-  row.innerHTML=
-    `<input type="checkbox" ${SEL.has(it.id)?'checked':''} onchange="toggleTest('${it.id}')"/>
-     <span class="tname">${esc(it.name)}</span>
-     ${lvLabel?`<span class="tlabel ${lvClass}">${lvLabel}</span>`:''}
-     <span class="ttime ${hasTime?'':'nodata'}">${it.display}</span>`;
-  row.querySelector('input').addEventListener('change',function(){ toggleTest(it.id,this.checked); });
-  row.addEventListener('click',e=>{ if(e.target.tagName!=='INPUT'){ const cb=row.querySelector('input'); cb.checked=!cb.checked; toggleTest(it.id,cb.checked); }});
+
+  // checkbox — single handler only, no inline onchange
+  const cb=document.createElement('input');
+  cb.type='checkbox';
+  cb.dataset.tid=it.id;
+  cb.checked=SEL.has(it.id);
+  cb.addEventListener('change',function(e){
+    e.stopPropagation();
+    if(this.checked) SEL.add(it.id); else SEL.delete(it.id);
+    updateSelectionUI();
+  });
+
+  const name=document.createElement('span');
+  name.className='tname'; name.textContent=it.name;
+
+  row.appendChild(cb);
+  row.appendChild(name);
+  if(lvLabel){
+    const lv=document.createElement('span');
+    lv.className='tlabel '+lvClass; lv.textContent=lvLabel;
+    row.appendChild(lv);
+  }
+  const t=document.createElement('span');
+  t.className='ttime'+(hasTime?'':' nodata'); t.textContent=it.display;
+  row.appendChild(t);
+
+  // clicking the row (not the checkbox) toggles selection
+  row.addEventListener('click',e=>{
+    if(e.target===cb) return;
+    cb.checked=!cb.checked;
+    if(cb.checked) SEL.add(it.id); else SEL.delete(it.id);
+    updateSelectionUI();
+  });
   return row;
 }
 
-function toggleTest(id,force){
-  if(force===undefined) force=!SEL.has(id);
-  if(force) SEL.add(id); else SEL.delete(id);
-  renderEffort();
+/* update checkboxes + headers + summary WITHOUT rebuilding the list */
+function updateSelectionUI(){
+  // 1. sync all individual test checkboxes
+  document.querySelectorAll('[data-tid]').forEach(cb=>{
+    cb.checked=SEL.has(cb.dataset.tid);
+  });
+  // 2. sync sheet select-all checkboxes
+  document.querySelectorAll('[data-sheet-sa]').forEach(cb=>{
+    const sname=cb.dataset.sheetSa;
+    const {items}=EFFORT[sname]||{items:[]};
+    const visible=getVisibleTests(sname,items);
+    cb.checked=visible.length>0 && visible.every(it=>SEL.has(it.id));
+    cb.indeterminate=!cb.checked && visible.some(it=>SEL.has(it.id));
+    // update sheet header meta text
+    const meta=document.querySelector(`[data-sheet-count="${sname}"]`);
+    if(meta){
+      const selN=visible.filter(it=>SEL.has(it.id)).length;
+      const days=visible.filter(it=>SEL.has(it.id)).reduce((s,t)=>s+(t.days||0),0);
+      meta.textContent=selN+'/'+visible.length+' selected';
+      const dayEl=document.querySelector(`[data-sheet-days="${sname}"]`);
+      if(dayEl) dayEl.textContent=days>0?days.toFixed(1)+' days':'';
+    }
+  });
+  // 3. sync group select-all checkboxes
+  document.querySelectorAll('[data-grp-sa]').forEach(cb=>{
+    const grp=cb.dataset.grpSa;
+    const tests=getAllTestsByGroup(grp);
+    cb.checked=tests.length>0 && tests.every(it=>SEL.has(it.id));
+    cb.indeterminate=!cb.checked && tests.some(it=>SEL.has(it.id));
+    const meta=document.querySelector(`[data-grp-count="${CSS.escape(grp)}"]`);
+    if(meta) meta.textContent=tests.filter(it=>SEL.has(it.id)).length+'/'+tests.length;
+  });
+  updateSummary();
+}
+
+function getVisibleTests(sheetName,items){
+  const q=(document.getElementById('eq').value||'').toLowerCase().trim();
+  return items.filter(it=>{
+    if(it.is_group) return false;
+    if(LV_FILTER>0 && sheetName==='HW Test Plan' && it.level!==LV_FILTER) return false;
+    if(q && !it.name.toLowerCase().includes(q) && !it.group.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function getAllTestsByGroup(grp){
+  const all=[];
+  Object.values(EFFORT).forEach(({items})=>
+    items.filter(it=>!it.is_group&&it.group===grp).forEach(it=>all.push(it)));
+  return all;
 }
 
 function toggleSheet(sheetName,on){
   const {items}=EFFORT[sheetName];
-  const q=(document.getElementById('eq').value||'').toLowerCase().trim();
-  items.filter(it=>!it.is_group).forEach(it=>{
-    if(LV_FILTER>0 && sheetName==='HW Test Plan' && it.level!==LV_FILTER) return;
-    if(q && !it.name.toLowerCase().includes(q)) return;
-    if(on) SEL.add(it.id); else SEL.delete(it.id);
-  });
-  renderEffort();
+  getVisibleTests(sheetName,items).forEach(it=>{ if(on) SEL.add(it.id); else SEL.delete(it.id); });
+  updateSelectionUI();
 }
 
 function toggleGroup(grpName,on){
-  Object.values(EFFORT).forEach(({items})=>{
-    items.filter(it=>!it.is_group&&it.group===grpName).forEach(it=>{
-      if(on) SEL.add(it.id); else SEL.delete(it.id);
-    });
-  });
-  renderEffort();
+  getAllTestsByGroup(grpName).forEach(it=>{ if(on) SEL.add(it.id); else SEL.delete(it.id); });
+  updateSelectionUI();
 }
 
 function selectAllGlobal(){
   Object.values(EFFORT).forEach(({items})=>items.filter(it=>!it.is_group).forEach(it=>SEL.add(it.id)));
-  renderEffort();
+  updateSelectionUI();
 }
 
-function clearAllGlobal(){ SEL.clear(); renderEffort(); }
+function clearAllGlobal(){ SEL.clear(); updateSelectionUI(); }
 
 function updateSummary(){
   let grandDays=0, totalSel=0, noData=0;
