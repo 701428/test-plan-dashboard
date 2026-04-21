@@ -397,7 +397,6 @@ tbody td{border:1px solid #1e293b;padding:6px 10px;color:#cbd5e1;max-width:240px
   <div class="tb-actions">
     <span class="ls" id="ls"></span>
     <button class="btn" onclick="loadAll()"><span id="si">🔄</span> Refresh</button>
-    <a class="btn" href="/calculator" target="_blank">⏱ Effort Calculator</a>
     <button class="btn btn-pur" onclick="openUpload()">⬆ Upload Excel</button>
   </div>
 </div>
@@ -406,6 +405,7 @@ tbody td{border:1px solid #1e293b;padding:6px 10px;color:#cbd5e1;max-width:240px
 <div class="tabs">
   <div class="tab active" id="tab-data"   onclick="switchTab('data')">📊 Data View</div>
   <div class="tab"        id="tab-effort" onclick="switchTab('effort')">⏱ Effort Calculator</div>
+
 </div>
 
 <!-- ══════════════════════════ DATA TAB ══════════════════════════ -->
@@ -431,52 +431,8 @@ tbody td{border:1px solid #1e293b;padding:6px 10px;color:#cbd5e1;max-width:240px
 </div>
 
 <!-- ══════════════════════════ EFFORT TAB ══════════════════════════ -->
-<div class="effort-layout" id="pane-effort" style="display:none;flex:1;min-height:0">
-  <div class="effort-main">
-    <!-- effort toolbar -->
-    <div class="etoolbar">
-      <span class="etoolbar-title">⏱ Effort Calculator</span>
-      <div class="sw"><span class="si">🔍</span>
-        <input type="text" id="eq" placeholder="Search tests…" oninput="renderEffort()"/></div>
-      <div class="level-filters">
-        <button class="lf on"  id="lf0" onclick="setLvFilter(0)">All</button>
-        <button class="lf lf1" id="lf1" onclick="setLvFilter(1)">🔴 Critical</button>
-        <button class="lf lf2" id="lf2" onclick="setLvFilter(2)">🟡 Hard</button>
-        <button class="lf lf3" id="lf3" onclick="setLvFilter(3)">🟢 Others</button>
-      </div>
-    </div>
-    <div class="state-box" id="effort-state" style="display:none"><div class="big">⏳</div><p>Loading…</p></div>
-    <div id="effort-scroll" class="effort-scroll"></div>
-  </div>
-
-  <!-- Summary panel -->
-  <div class="summary">
-    <div class="sum-top">
-      <div class="sum-label">Grand Total Effort</div>
-      <div class="sum-big" id="grand-total">0</div>
-      <div class="sum-unit">Man Days</div>
-      <div class="sum-sub" id="grand-sub"></div>
-    </div>
-    <div class="sum-body">
-      <div class="sum-section">
-        <div class="sum-section-title">By Sheet</div>
-        <div id="sum-sheets"></div>
-      </div>
-      <hr class="sum-divider"/>
-      <div class="sum-section">
-        <div class="sum-section-title">Overview</div>
-        <div class="sum-stat-row"><span class="sk">Tests selected</span><span class="sv" id="sum-sel">0</span></div>
-        <div class="sum-stat-row"><span class="sk">HW Critical</span><span class="sv" id="sum-lv1" style="color:#fca5a5">0 days</span></div>
-        <div class="sum-stat-row"><span class="sk">HW Hard to pass</span><span class="sv" id="sum-lv2" style="color:#fcd34d">0 days</span></div>
-        <div class="sum-stat-row"><span class="sk">HW Others</span><span class="sv" id="sum-lv3" style="color:#86efac">0 days</span></div>
-        <div class="sum-stat-row"><span class="sk">No time data</span><span class="sv" id="sum-nd">0</span></div>
-      </div>
-    </div>
-    <div class="sum-footer">
-      <button class="full-btn selall" onclick="selectAllGlobal()">✓ Select All Tests</button>
-      <button class="full-btn clear"  onclick="clearAllGlobal()">✕ Clear All</button>
-    </div>
-  </div>
+<div id="pane-effort" style="display:none;flex:1;min-height:0">
+  <iframe src="/calculator?embed=1" style="width:100%;height:100%;border:none;" id="calc-frame"></iframe>
 </div>
 
 <script>
@@ -1335,6 +1291,9 @@ function updateSummary(){
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 init();
+if(new URLSearchParams(location.search).get('embed')==='1'){
+  document.querySelector('.hdr').style.display='none';
+}
 </script>
 </body>
 </html>"""
