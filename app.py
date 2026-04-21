@@ -423,6 +423,31 @@ function switchTab(t){
 }
 
 /* ════════════════════════ data load ════════════════════════ */
+async function fetchWithRetry(url, retries=5, delayMs=6000){
+  for(let i=0;i<retries;i++){
+    try{
+      const ctrl=new AbortController();
+      const tid=setTimeout(()=>ctrl.abort(), 55000); // 55s timeout
+      const r=await fetch(url,{signal:ctrl.signal});
+      clearTimeout(tid);
+      if(r.ok) return r;
+      throw new Error('HTTP '+r.status);
+    }catch(e){
+      if(i===retries-1) throw e;
+      const wait=delayMs*(i+1);
+      setWakeMsg(`Server is waking up… retrying in ${wait/1000}s (${i+1}/${retries})`);
+      await new Promise(res=>setTimeout(res,wait));
+    }
+  }
+}
+
+function setWakeMsg(msg){
+  document.getElementById('data-state').innerHTML=
+    '<div class="big">⏳</div><p style="color:#a5b4fc">'+msg+'</p>';
+  document.getElementById('data-state').style.display='flex';
+  document.getElementById('data-content').style.display='none';
+}
+
 async function loadAll(){
   spin(true);
   await Promise.all([loadData(), loadEffort()]);
@@ -431,8 +456,8 @@ async function loadAll(){
 
 async function loadData(){
   try{
-    const r=await fetch('/data?t='+Date.now());
-    if(!r.ok) throw new Error(await r.text());
+    setWakeMsg('Connecting to server…');
+    const r=await fetchWithRetry('/data?t='+Date.now());
     const j=await r.json();
     DATA=j.data;
     document.getElementById('sub').textContent=j.filename+' · Real-time from Excel';
@@ -442,7 +467,8 @@ async function loadData(){
     else if(Object.keys(DATA).length){ACTIVE=Object.keys(DATA)[0];buildSidebar();showSheet(ACTIVE);}
   }catch(e){
     document.getElementById('data-state').innerHTML=
-      '<div class="big">❌</div><p class="err">'+e.message+'</p>';
+      '<div class="big">❌</div><p style="color:#f87171">Could not reach server.<br><small>'+e.message+'</small></p>'+
+      '<button class="btn btn-pur" onclick="loadAll()" style="margin-top:8px">🔄 Try Again</button>';
     document.getElementById('data-state').style.display='flex';
     document.getElementById('data-content').style.display='none';
   }
@@ -450,13 +476,12 @@ async function loadData(){
 
 async function loadEffort(){
   try{
-    const r=await fetch('/effort?t='+Date.now());
-    if(!r.ok) throw new Error(await r.text());
+    const r=await fetchWithRetry('/effort?t='+Date.now());
     EFFORT=await r.json();
     renderEffort();
   }catch(e){
     document.getElementById('effort-state').innerHTML=
-      '<div class="big">❌</div><p class="err">'+e.message+'</p>';
+      '<div class="big">❌</div><p style="color:#f87171">'+e.message+'</p>';
     document.getElementById('effort-state').style.display='flex';
   }
 }
@@ -628,7 +653,9 @@ function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 
 /* ════════════════════════ init ════════════════════════ */
 loadAll();
-setInterval(loadAll,30000);
+setInterval(loadAll, 30000);
+// Keep server awake — ping every 10 min so Render free tier doesn't sleep
+setInterval(()=>fetch('/ping').catch(()=>{}), 10*60*1000);
 </script>
 </body>
 </html>"""
@@ -653,6 +680,11 @@ def effort():
         return jsonify(read_effort())
     except Exception as e:
         return str(e), 500
+
+
+@app.route("/ping")
+def ping():
+    return "ok", 200
 
 
 @app.route("/upload", methods=["POST"])
