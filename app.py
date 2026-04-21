@@ -269,8 +269,8 @@ tbody td{border:1px solid #1e293b;padding:6px 10px;color:#cbd5e1;max-width:240px
 .ec{color:#334155;font-style:italic;font-size:.68rem}
 
 /* ── EFFORT layout ── */
-.effort-layout{display:flex;height:calc(100vh - 100px);overflow:hidden}
-.effort-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.effort-layout{display:flex;height:calc(100vh - 100px);overflow:hidden;min-height:0}
+.effort-main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
 
 /* effort toolbar */
 .etoolbar{background:#1a2235;border-bottom:1px solid #334155;padding:9px 14px;
@@ -286,7 +286,7 @@ tbody td{border:1px solid #1e293b;padding:6px 10px;color:#cbd5e1;max-width:240px
 .lf.lf3.on{background:#14532d;border-color:#22c55e;color:#86efac}
 
 /* effort list */
-.effort-scroll{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.effort-scroll{flex:1;overflow-y:scroll;padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-height:0}
 
 /* sheet accordion */
 .sheet-block{background:#1a2235;border:1px solid #334155;border-radius:10px;overflow:hidden}
@@ -315,11 +315,11 @@ tbody td{border:1px solid #1e293b;padding:6px 10px;color:#cbd5e1;max-width:240px
 
 /* test row */
 .test-list{padding:4px 0}
-.trow{display:flex;align-items:center;gap:10px;padding:6px 14px 6px 24px;
-  transition:background .12s;cursor:pointer}
-.trow:hover{background:#1e293b}
-.trow input[type=checkbox]{width:14px;height:14px;accent-color:#6366f1;cursor:pointer;flex-shrink:0}
-.trow .tname{flex:1;font-size:.78rem;color:#cbd5e1;line-height:1.35}
+.trow{display:flex;align-items:center;gap:12px;padding:9px 14px 9px 24px;
+  transition:background .12s;cursor:pointer;border-radius:6px;min-height:38px}
+.trow:hover{background:#243044}
+.trow input[type=checkbox]{width:16px;height:16px;accent-color:#6366f1;cursor:pointer;flex-shrink:0;margin:0}
+.trow .tname{flex:1;font-size:.8rem;color:#cbd5e1;line-height:1.4}
 .trow .tlabel{font-size:.62rem;padding:1px 6px;border-radius:4px;font-weight:600;flex-shrink:0}
 .lv1{background:#7f1d1d;color:#fca5a5}
 .lv2{background:#78350f;color:#fcd34d}
@@ -330,7 +330,7 @@ tbody td{border:1px solid #1e293b;padding:6px 10px;color:#cbd5e1;max-width:240px
 
 /* ── summary panel ── */
 .summary{width:268px;min-width:268px;background:#1e293b;border-left:1px solid #334155;
-  display:flex;flex-direction:column;overflow:hidden}
+  display:flex;flex-direction:column;overflow:hidden;min-height:0}
 .sum-top{padding:18px 16px;background:linear-gradient(135deg,#1e1b4b,#1a2235);border-bottom:1px solid #334155;flex-shrink:0}
 .sum-label{font-size:.62rem;font-weight:700;letter-spacing:.12em;color:#475569;text-transform:uppercase;margin-bottom:6px}
 .sum-big{font-size:2.8rem;font-weight:800;color:#a5b4fc;line-height:1;letter-spacing:-.02em}
@@ -444,7 +444,7 @@ tbody td{border:1px solid #1e293b;padding:6px 10px;color:#cbd5e1;max-width:240px
       </div>
     </div>
     <div class="state-box" id="effort-state" style="display:none"><div class="big">⏳</div><p>Loading…</p></div>
-    <div class="effort-scroll" id="effort-scroll"></div>
+    <div id="effort-scroll" class="effort-scroll"></div>
   </div>
 
   <!-- Summary panel -->
@@ -779,7 +779,7 @@ function updateSelectionUI(){
     const tests=getAllTestsByGroup(grp);
     cb.checked=tests.length>0 && tests.every(it=>SEL.has(it.id));
     cb.indeterminate=!cb.checked && tests.some(it=>SEL.has(it.id));
-    const meta=document.querySelector(`[data-grp-count="${CSS.escape(grp)}"]`);
+    const meta=[...document.querySelectorAll('[data-grp-count]')].find(el=>el.dataset.grpCount===grp);
     if(meta) meta.textContent=tests.filter(it=>SEL.has(it.id)).length+'/'+tests.length;
   });
   updateSummary();
