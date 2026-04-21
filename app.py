@@ -397,6 +397,7 @@ tbody td{border:1px solid #1e293b;padding:6px 10px;color:#cbd5e1;max-width:240px
   <div class="tb-actions">
     <span class="ls" id="ls"></span>
     <button class="btn" onclick="loadAll()"><span id="si">🔄</span> Refresh</button>
+    <a class="btn" href="/calculator" target="_blank">⏱ Effort Calculator</a>
     <button class="btn btn-pur" onclick="openUpload()">⬆ Upload Excel</button>
   </div>
 </div>
@@ -903,6 +904,441 @@ setInterval(()=>fetch('/ping').catch(()=>{}), 10*60*1000);
 </body>
 </html>"""
 
+CALC_HTML = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Effort Calculator</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;
+     display:flex;flex-direction:column;height:100vh;overflow:hidden;font-size:13px}
+
+/* header */
+.hdr{background:linear-gradient(135deg,#1e293b,#0f172a);border-bottom:1px solid #334155;
+     padding:12px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.hdr-logo{width:34px;height:34px;background:linear-gradient(135deg,#6366f1,#8b5cf6);
+          border-radius:9px;display:grid;place-items:center;font-size:17px;color:#fff;font-weight:700}
+.hdr h1{font-size:1rem;font-weight:700;color:#f1f5f9;flex:1}
+.hdr a{text-decoration:none;color:#94a3b8;font-size:.78rem;border:1px solid #334155;
+       border-radius:7px;padding:5px 12px;transition:all .2s}
+.hdr a:hover{background:#334155;color:#e2e8f0}
+
+/* toolbar */
+.toolbar{background:#1a2235;border-bottom:1px solid #334155;padding:8px 14px;
+         display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0}
+.search{position:relative}
+.search input{background:#0f1117;border:1px solid #334155;border-radius:7px;
+              padding:6px 10px 6px 28px;color:#e2e8f0;font-size:.78rem;width:200px;
+              outline:none;transition:border-color .2s}
+.search input:focus{border-color:#6366f1}
+.search-icon{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:#475569;font-size:12px}
+.lf-wrap{display:flex;gap:4px}
+.lf{padding:4px 10px;font-size:.72rem;border-radius:6px;cursor:pointer;
+    border:1px solid #334155;background:transparent;color:#64748b;transition:all .18s}
+.lf:hover,.lf.on{background:#1e1b4b;border-color:#6366f1;color:#a5b4fc}
+.lf.lf1.on{background:#7f1d1d;border-color:#f87171;color:#fca5a5}
+.lf.lf2.on{background:#78350f;border-color:#f59e0b;color:#fcd34d}
+.lf.lf3.on{background:#14532d;border-color:#22c55e;color:#86efac}
+.spacer{flex:1}
+.gbtn{padding:5px 12px;font-size:.75rem;border-radius:7px;cursor:pointer;border:1px solid;
+      font-weight:500;transition:all .2s}
+.gbtn.sel{border-color:#14532d;color:#4ade80;background:transparent}
+.gbtn.sel:hover{background:#14532d;color:#fff}
+.gbtn.clr{border-color:#7f1d1d;color:#f87171;background:transparent}
+.gbtn.clr:hover{background:#7f1d1d;color:#fff}
+
+/* body split */
+.body{display:flex;flex:1;min-height:0;overflow:hidden}
+
+/* left: sheet tabs + list */
+.left{display:flex;flex:1;min-width:0;overflow:hidden}
+.sheet-tabs{width:170px;min-width:170px;background:#1e293b;border-right:1px solid #334155;
+            overflow-y:auto;padding:10px 8px;display:flex;flex-direction:column;gap:3px}
+.stab{background:transparent;border:1px solid transparent;border-radius:8px;
+      padding:9px 10px;cursor:pointer;text-align:left;width:100%;color:#94a3b8;
+      font-size:.78rem;font-weight:500;transition:all .18s;line-height:1.4}
+.stab:hover{background:#334155;color:#e2e8f0;border-color:#475569}
+.stab.active{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;
+             border-color:transparent;box-shadow:0 3px 10px rgba(99,102,241,.4)}
+.stab .tc{display:inline-block;font-size:.62rem;background:rgba(255,255,255,.18);
+          border-radius:20px;padding:1px 6px;margin-left:4px;vertical-align:middle}
+
+/* test list */
+.list-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.list-hdr{background:#1a2235;border-bottom:1px solid #334155;padding:10px 14px;
+          display:flex;align-items:center;gap:10px;flex-shrink:0}
+.list-hdr h2{font-size:.88rem;font-weight:700;color:#f1f5f9;flex:1}
+.sel-all-wrap{display:flex;align-items:center;gap:6px;font-size:.75rem;color:#94a3b8;cursor:pointer}
+.sel-all-wrap input{width:15px;height:15px;accent-color:#6366f1;cursor:pointer}
+.sheet-count{font-size:.72rem;color:#475569}
+.list-scroll{flex:1;overflow-y:auto;padding:10px 14px}
+
+/* group header */
+.grp-hdr{background:#1e1b4b;border-radius:7px;padding:8px 12px;margin:10px 0 4px;
+         display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.grp-hdr:first-child{margin-top:0}
+.grp-arrow{color:#6366f1;font-size:.72rem;transition:transform .15s;flex-shrink:0}
+.grp-hdr.collapsed .grp-arrow{transform:rotate(-90deg)}
+.grp-name{font-size:.76rem;font-weight:600;color:#a5b4fc;flex:1}
+.grp-sel-wrap{display:flex;align-items:center;gap:5px;font-size:.68rem;color:#475569}
+.grp-sel-wrap input{width:13px;height:13px;accent-color:#6366f1;cursor:pointer}
+.grp-count{font-size:.68rem;color:#4f46e5}
+
+/* test row */
+.test-row{display:flex;align-items:center;gap:10px;padding:9px 12px 9px 20px;
+          border-radius:7px;cursor:pointer;min-height:40px;transition:background .12s}
+.test-row:hover{background:#1e293b}
+.test-row.selected{background:#1e1b4b}
+.test-row input[type=checkbox]{width:16px;height:16px;accent-color:#6366f1;
+                                cursor:pointer;flex-shrink:0;margin:0}
+.test-name{flex:1;font-size:.8rem;color:#cbd5e1;line-height:1.4}
+.test-level{font-size:.63rem;padding:2px 7px;border-radius:4px;font-weight:600;flex-shrink:0}
+.lv1{background:#7f1d1d;color:#fca5a5}
+.lv2{background:#78350f;color:#fcd34d}
+.lv3{background:#14532d;color:#86efac}
+.test-time{font-size:.76rem;color:#a5b4fc;font-weight:600;flex-shrink:0;
+           min-width:72px;text-align:right}
+.test-time.nd{color:#334155}
+
+/* right: summary */
+.summary{width:260px;min-width:260px;background:#1e293b;border-left:1px solid #334155;
+         display:flex;flex-direction:column;overflow:hidden}
+.sum-top{padding:16px;background:linear-gradient(135deg,#1e1b4b,#1a2235);
+         border-bottom:1px solid #334155;flex-shrink:0}
+.sum-lbl{font-size:.6rem;font-weight:700;letter-spacing:.1em;color:#475569;
+         text-transform:uppercase;margin-bottom:6px}
+.sum-big{font-size:2.6rem;font-weight:800;color:#a5b4fc;line-height:1}
+.sum-unit{font-size:.7rem;color:#475569;margin-top:3px}
+.sum-note{font-size:.7rem;color:#64748b;margin-top:8px}
+.sum-body{flex:1;overflow-y:auto;padding:12px}
+.sum-sec-title{font-size:.6rem;font-weight:700;letter-spacing:.1em;color:#475569;
+               text-transform:uppercase;margin-bottom:8px;margin-top:4px}
+.sum-sheet{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:7px;
+           background:#1a2235;border:1px solid #334155;margin-bottom:4px}
+.sum-sheet-name{flex:1;font-size:.73rem;color:#94a3b8}
+.sum-sheet-cnt{font-size:.68rem;color:#475569}
+.sum-sheet-val{font-size:.73rem;color:#a5b4fc;font-weight:600;min-width:52px;text-align:right}
+.divider{border:none;border-top:1px solid #334155;margin:10px 0}
+.stat{display:flex;justify-content:space-between;font-size:.75rem;padding:3px 0}
+.stat .k{color:#64748b}
+.stat .v{color:#e2e8f0;font-weight:600}
+
+/* loading */
+.loader{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#475569}
+.loader .big{font-size:2.4rem}
+.loader p{font-size:.85rem}
+
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:#0f1117}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#475569}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-logo">⏱</div>
+  <h1>Effort Calculator — Test Plan Dashboard</h1>
+  <a href="/">← Back to Dashboard</a>
+</div>
+
+<div class="toolbar">
+  <div class="search">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="search" placeholder="Search tests…" oninput="applySearch()"/>
+  </div>
+  <div class="lf-wrap">
+    <button class="lf on" id="lf0" onclick="setLv(0)">All</button>
+    <button class="lf lf1" id="lf1" onclick="setLv(1)">🔴 Critical</button>
+    <button class="lf lf2" id="lf2" onclick="setLv(2)">🟡 Hard</button>
+    <button class="lf lf3" id="lf3" onclick="setLv(3)">🟢 Others</button>
+  </div>
+  <div class="spacer"></div>
+  <button class="gbtn sel" onclick="selectAllVisible()">✓ Select All</button>
+  <button class="gbtn clr" onclick="clearAll()">✕ Clear All</button>
+</div>
+
+<div class="body">
+  <!-- sheet tabs -->
+  <div class="sheet-tabs" id="sheet-tabs"></div>
+
+  <!-- test list -->
+  <div class="list-wrap">
+    <div class="list-hdr">
+      <h2 id="list-title">Select a sheet</h2>
+      <span class="sheet-count" id="list-count"></span>
+      <label class="sel-all-wrap">
+        <input type="checkbox" id="sheet-sa" onchange="toggleSheetAll(this.checked)"/>
+        Select All
+      </label>
+    </div>
+    <div class="list-scroll" id="list-scroll">
+      <div class="loader"><div class="big">⏳</div><p>Loading effort data…</p></div>
+    </div>
+  </div>
+
+  <!-- summary -->
+  <div class="summary">
+    <div class="sum-top">
+      <div class="sum-lbl">Grand Total</div>
+      <div class="sum-big" id="grand">0.0</div>
+      <div class="sum-unit">Man Days</div>
+      <div class="sum-note" id="grand-note">0 tests selected</div>
+    </div>
+    <div class="sum-body">
+      <div class="sum-sec-title">By Sheet</div>
+      <div id="sum-sheets"></div>
+      <hr class="divider"/>
+      <div class="sum-sec-title">Overview</div>
+      <div class="stat"><span class="k">Selected tests</span><span class="v" id="s-sel">0</span></div>
+      <div class="stat"><span class="k">HW Critical</span><span class="v" style="color:#fca5a5" id="s-lv1">0.0 d</span></div>
+      <div class="stat"><span class="k">HW Hard</span><span class="v" style="color:#fcd34d" id="s-lv2">0.0 d</span></div>
+      <div class="stat"><span class="k">HW Others</span><span class="v" style="color:#86efac" id="s-lv3">0.0 d</span></div>
+      <div class="stat"><span class="k">No time data</span><span class="v" id="s-nd">0</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ICONS={"Priority Test":"⭐","HW Test Plan":"🔧","FW Test Plan":"💾","Module HW":"📡","Comms Testing":"📶"};
+let EFFORT={}, SEL=new Set(), activeSheet=null, lvFilter=0, collapsedGrps={};
+
+async function init(){
+  try{
+    const r=await fetch('/effort');
+    if(!r.ok) throw new Error(await r.text());
+    EFFORT=await r.json();
+    buildTabs();
+    // auto-select first sheet
+    const first=Object.keys(EFFORT)[0];
+    if(first) selectSheet(first);
+    updateSummary();
+  }catch(e){
+    document.getElementById('list-scroll').innerHTML=
+      '<div class="loader"><div class="big">❌</div><p style="color:#f87171">'+e.message+'</p></div>';
+  }
+}
+
+function buildTabs(){
+  const el=document.getElementById('sheet-tabs');
+  el.innerHTML='';
+  Object.entries(EFFORT).forEach(([name,{items}])=>{
+    const tests=items.filter(t=>!t.is_group);
+    const btn=document.createElement('button');
+    btn.className='stab';
+    btn.dataset.sheet=name;
+    btn.innerHTML=(ICONS[name]||'📄')+' '+name+'<span class="tc">'+tests.length+'</span>';
+    btn.onclick=()=>selectSheet(name);
+    el.appendChild(btn);
+  });
+}
+
+function selectSheet(name){
+  activeSheet=name;
+  // update tab styles
+  document.querySelectorAll('.stab').forEach(b=>b.classList.toggle('active',b.dataset.sheet===name));
+  renderList();
+}
+
+function renderList(){
+  if(!activeSheet||!EFFORT[activeSheet]) return;
+  const {items}=EFFORT[activeSheet];
+  const q=(document.getElementById('search').value||'').toLowerCase().trim();
+  const scroll=document.getElementById('list-scroll');
+  scroll.innerHTML='';
+
+  document.getElementById('list-title').textContent=(ICONS[activeSheet]||'📄')+' '+activeSheet;
+
+  const allTests=items.filter(t=>!t.is_group);
+  const visible=allTests.filter(t=>{
+    if(lvFilter>0 && activeSheet==='HW Test Plan' && t.level!==lvFilter) return false;
+    if(q && !t.name.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  const selCount=visible.filter(t=>SEL.has(t.id)).length;
+  document.getElementById('list-count').textContent=selCount+'/'+visible.length+' selected';
+  const sa=document.getElementById('sheet-sa');
+  sa.checked=visible.length>0&&selCount===visible.length;
+  sa.indeterminate=selCount>0&&selCount<visible.length;
+
+  // HW sheet: grouped
+  if(activeSheet==='HW Test Plan'){
+    const groups={}, order=[];
+    items.filter(t=>t.is_group).forEach(g=>{ groups[g.name]=[]; order.push(g.name); });
+    visible.forEach(t=>{ if(groups[t.group]) groups[t.group].push(t); });
+    order.forEach(grp=>{
+      const tests=groups[grp];
+      if(!tests||!tests.length) return;
+      const collapsed=collapsedGrps[grp]||false;
+      const grpSel=tests.filter(t=>SEL.has(t.id)).length;
+
+      // group header
+      const gh=document.createElement('div');
+      gh.className='grp-hdr'+(collapsed?' collapsed':'');
+      gh.innerHTML='<span class="grp-arrow">▾</span>'+
+        '<span class="grp-name">'+esc(grp)+'</span>'+
+        '<span class="grp-count">'+grpSel+'/'+tests.length+'</span>';
+      const gsa=document.createElement('label');
+      gsa.className='grp-sel-wrap';
+      const gcb=document.createElement('input');
+      gcb.type='checkbox'; gcb.checked=grpSel===tests.length&&tests.length>0;
+      gcb.indeterminate=grpSel>0&&grpSel<tests.length;
+      gcb.addEventListener('change',function(e){
+        e.stopPropagation();
+        tests.forEach(t=>{ if(this.checked) SEL.add(t.id); else SEL.delete(t.id); });
+        renderList(); updateSummary();
+      });
+      gsa.appendChild(gcb);
+      gsa.appendChild(document.createTextNode(' All'));
+      gsa.addEventListener('click',e=>e.stopPropagation());
+      gh.appendChild(gsa);
+      gh.addEventListener('click',()=>{ collapsedGrps[grp]=!collapsed; renderList(); });
+      scroll.appendChild(gh);
+
+      if(!collapsed){
+        tests.forEach(t=>scroll.appendChild(makeRow(t)));
+      }
+    });
+  } else {
+    // flat list
+    if(!visible.length){
+      scroll.innerHTML='<div class="loader"><div class="big">🔍</div><p>No tests match filter</p></div>';
+    } else {
+      visible.forEach(t=>scroll.appendChild(makeRow(t)));
+    }
+  }
+}
+
+function makeRow(t){
+  const row=document.createElement('div');
+  row.className='test-row'+(SEL.has(t.id)?' selected':'');
+
+  const cb=document.createElement('input');
+  cb.type='checkbox'; cb.checked=SEL.has(t.id);
+  cb.addEventListener('change',function(e){
+    e.stopPropagation();
+    if(this.checked){ SEL.add(t.id); row.classList.add('selected'); }
+    else { SEL.delete(t.id); row.classList.remove('selected'); }
+    updateHeaderCount();
+    updateSummary();
+  });
+
+  const name=document.createElement('span');
+  name.className='test-name'; name.textContent=t.name;
+
+  row.appendChild(cb);
+  row.appendChild(name);
+
+  if(t.level){
+    const lv=document.createElement('span');
+    lv.className='test-level '+(t.level===1?'lv1':t.level===2?'lv2':'lv3');
+    lv.textContent=t.level===1?'Critical':t.level===2?'Hard':'Others';
+    row.appendChild(lv);
+  }
+
+  const tt=document.createElement('span');
+  tt.className='test-time'+(t.days==null?' nd':'');
+  tt.textContent=t.display||'—';
+  row.appendChild(tt);
+
+  row.addEventListener('click',e=>{
+    if(e.target===cb) return;
+    cb.checked=!cb.checked;
+    cb.dispatchEvent(new Event('change'));
+  });
+  return row;
+}
+
+function updateHeaderCount(){
+  if(!activeSheet||!EFFORT[activeSheet]) return;
+  const {items}=EFFORT[activeSheet];
+  const q=(document.getElementById('search').value||'').toLowerCase().trim();
+  const visible=items.filter(t=>{
+    if(t.is_group) return false;
+    if(lvFilter>0 && activeSheet==='HW Test Plan' && t.level!==lvFilter) return false;
+    if(q && !t.name.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const selCount=visible.filter(t=>SEL.has(t.id)).length;
+  document.getElementById('list-count').textContent=selCount+'/'+visible.length+' selected';
+  const sa=document.getElementById('sheet-sa');
+  sa.checked=visible.length>0&&selCount===visible.length;
+  sa.indeterminate=selCount>0&&selCount<visible.length;
+}
+
+function toggleSheetAll(on){
+  if(!activeSheet||!EFFORT[activeSheet]) return;
+  const q=(document.getElementById('search').value||'').toLowerCase().trim();
+  EFFORT[activeSheet].items.filter(t=>{
+    if(t.is_group) return false;
+    if(lvFilter>0 && activeSheet==='HW Test Plan' && t.level!==lvFilter) return false;
+    if(q && !t.name.toLowerCase().includes(q)) return false;
+    return true;
+  }).forEach(t=>{ if(on) SEL.add(t.id); else SEL.delete(t.id); });
+  renderList(); updateSummary();
+}
+
+function selectAllVisible(){
+  document.getElementById('sheet-sa').checked=true;
+  toggleSheetAll(true);
+}
+
+function clearAll(){
+  SEL.clear();
+  renderList(); updateSummary();
+}
+
+function applySearch(){ renderList(); updateSummary(); }
+
+function setLv(lv){
+  lvFilter=lv;
+  [0,1,2,3].forEach(i=>document.getElementById('lf'+i).classList.toggle('on',i===lv));
+  renderList(); updateSummary();
+}
+
+function updateSummary(){
+  let grand=0, total=0, nd=0, lv1=0, lv2=0, lv3=0;
+  const sheets=[];
+  Object.entries(EFFORT).forEach(([name,{items}])=>{
+    const tests=items.filter(t=>!t.is_group);
+    const sel=tests.filter(t=>SEL.has(t.id));
+    const days=sel.reduce((s,t)=>s+(t.days||0),0);
+    grand+=days; total+=sel.length;
+    nd+=sel.filter(t=>t.days==null).length;
+    if(name==='HW Test Plan'){
+      lv1+=sel.filter(t=>t.level===1).reduce((s,t)=>s+(t.days||0),0);
+      lv2+=sel.filter(t=>t.level===2).reduce((s,t)=>s+(t.days||0),0);
+      lv3+=sel.filter(t=>t.level===3).reduce((s,t)=>s+(t.days||0),0);
+    }
+    sheets.push({name,sel:sel.length,total:tests.length,days});
+  });
+
+  document.getElementById('grand').textContent=grand.toFixed(1);
+  document.getElementById('grand-note').textContent=total+' test'+(total!==1?'s':'')+' selected';
+  document.getElementById('s-sel').textContent=total;
+  document.getElementById('s-lv1').textContent=lv1.toFixed(1)+' d';
+  document.getElementById('s-lv2').textContent=lv2.toFixed(1)+' d';
+  document.getElementById('s-lv3').textContent=lv3.toFixed(1)+' d';
+  document.getElementById('s-nd').textContent=nd;
+  document.getElementById('sum-sheets').innerHTML=sheets.map(s=>
+    '<div class="sum-sheet">'+
+    '<span class="sum-sheet-name">'+(ICONS[s.name]||'📄')+' '+s.name+'</span>'+
+    '<span class="sum-sheet-cnt">'+s.sel+'/'+s.total+'</span>'+
+    '<span class="sum-sheet-val">'+(s.days>0?s.days.toFixed(1)+'d':'—')+'</span>'+
+    '</div>'
+  ).join('');
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+init();
+</script>
+</body>
+</html>"""
+
 # ─── Routes ───────────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -922,6 +1358,10 @@ def effort():
         return jsonify(read_effort())
     except Exception as e:
         return str(e), 500
+
+@app.route("/calculator")
+def calculator():
+    return render_template_string(CALC_HTML)
 
 @app.route("/ping")
 def ping():
