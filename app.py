@@ -189,7 +189,8 @@ HTML = r"""<!DOCTYPE html>
 <title>Test Plan Dashboard</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;font-size:13px}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;
+  height:100vh;overflow:hidden;display:flex;flex-direction:column;font-size:13px}
 
 /* ── top bar ── */
 .top-bar{background:linear-gradient(135deg,#1e293b,#0f172a);border-bottom:1px solid #334155;
@@ -237,7 +238,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f
 .prog-txt{font-size:.75rem;color:#94a3b8;margin-top:6px;min-height:18px}
 
 /* ── DATA layout ── */
-.layout{display:flex;height:calc(100vh - 100px)}
+.layout{display:flex;flex:1;min-height:0;overflow:hidden}
 .sidebar{width:210px;min-width:210px;background:#1e293b;border-right:1px solid #334155;
   display:flex;flex-direction:column;padding:12px 8px;gap:3px;overflow-y:auto}
 .sl{font-size:.6rem;font-weight:700;letter-spacing:.12em;color:#475569;text-transform:uppercase;padding:0 8px 8px}
@@ -269,7 +270,7 @@ tbody td{border:1px solid #1e293b;padding:6px 10px;color:#cbd5e1;max-width:240px
 .ec{color:#334155;font-style:italic;font-size:.68rem}
 
 /* ── EFFORT layout ── */
-.effort-layout{display:flex;height:calc(100vh - 100px);overflow:hidden;min-height:0}
+.effort-layout{display:flex;flex:1;min-height:0;overflow:hidden}
 .effort-main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
 
 /* effort toolbar */
@@ -407,7 +408,7 @@ tbody td{border:1px solid #1e293b;padding:6px 10px;color:#cbd5e1;max-width:240px
 </div>
 
 <!-- ══════════════════════════ DATA TAB ══════════════════════════ -->
-<div class="layout" id="pane-data">
+<div class="layout" id="pane-data" style="flex:1;min-height:0">
   <nav class="sidebar" id="sidebar"><div class="sl">Sheets</div></nav>
   <div class="main">
     <div class="state-box" id="data-state"><div class="big">⏳</div><p>Loading…</p></div>
@@ -429,7 +430,7 @@ tbody td{border:1px solid #1e293b;padding:6px 10px;color:#cbd5e1;max-width:240px
 </div>
 
 <!-- ══════════════════════════ EFFORT TAB ══════════════════════════ -->
-<div class="effort-layout" id="pane-effort" style="display:none">
+<div class="effort-layout" id="pane-effort" style="display:none;flex:1;min-height:0">
   <div class="effort-main">
     <!-- effort toolbar -->
     <div class="etoolbar">
